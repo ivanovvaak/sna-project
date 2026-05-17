@@ -1,0 +1,44 @@
+version: "3.9"
+
+services:
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: uptime_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       uptime_db
+      POSTGRES_USER:     uptime_user
+      POSTGRES_PASSWORD: secure_password
+    #ports:
+    #  - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./worker/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U uptime_user -d uptime_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  worker:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    container_name: uptime_worker
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_HOST:                 postgres
+      DB_PORT:                 5432
+      DB_NAME:                 uptime_db
+      DB_USER:                 uptime_user
+      DB_PASSWORD:             secure_password
+      URLS:                    https://google.com,https://github.com,http://example.com
+      CHECK_INTERVAL_SECONDS:  60
+      REQUEST_TIMEOUT:         5
+
+volumes:
+  pgdata:
